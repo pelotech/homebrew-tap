@@ -18,12 +18,6 @@ Open follow-ups for this tap. Tick items off (or delete them) in the PR that res
     `on_linux` overrides, and `on_macos do depends_on arch: :arm64 end` (as in core's `podman`,
     `pomerium` and `reg`).
 
-## pelotech/smolbento (separate PR)
-
-- [ ] Release job (`needs: [release-please, binaries]`) mints a `pt-release-please` token for
-  `pelotech/homebrew-tap` and sends the `bump-formula` dispatch
-- [ ] Install docs: add the Homebrew instructions (tap smol-machines, trust, install)
-
 ## Nice to have (deferred review items)
 
 - [ ] `scripts/test-bump-formula`: check stderr so the wrong-signer and missing-release cases prove
