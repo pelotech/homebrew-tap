@@ -59,15 +59,22 @@ jobs:
           persist-credentials: false
       - uses: Homebrew/actions/setup-homebrew@4790763c0a3ba4036f72634dc079c4a7dfcd4878 # 2026.10.19.1
       - name: Install and test every formula
-        env:
-          # TODO (see TODO.md): drop once smol-machines/tap's smolvm installs on Linux again. Its formula patches
-          # lib/libkrun.so.1 but the 1.32.3 tarball ships libkrun.so.2. Our formula tests don't need smolvm.
-          INSTALL_FLAGS: ${{ runner.os == 'Linux' && '--ignore-dependencies' || '' }}
+        if: runner.os == 'macOS'
         run: |
           brew tap smol-machines/tap && brew trust pelotech/tap smol-machines/tap
           for f in Formula/*.rb; do
             name="pelotech/tap/$(basename "$f" .rb)"
-            # shellcheck disable=SC2086 # INSTALL_FLAGS is empty or one flag
-            brew install $INSTALL_FLAGS "$name"
+            brew install "$name"
             brew test "$name"
           done
+      # TODO (see TODO.md): use the step above on Linux too once smol-machines/tap's smolvm installs
+      # there again (its formula patches lib/libkrun.so.1, but the 1.32.3 tarball ships libkrun.so.2).
+      # `brew test` needs every dependency installed, so run the formula's test assertions directly.
+      - name: Install smolbento without smolvm and smoke-test it
+        if: runner.os == 'Linux'
+        run: |
+          brew tap smol-machines/tap && brew trust pelotech/tap smol-machines/tap
+          brew install --ignore-dependencies pelotech/tap/smolbento
+          version=$(brew info --json=v2 pelotech/tap/smolbento | jq -r '.formulae[0].versions.stable')
+          smolbento version | grep -F "smolbento version v$version"
+          sbt --version | grep -F "$version"
