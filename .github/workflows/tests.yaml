@@ -60,7 +60,7 @@ jobs:
       - uses: Homebrew/actions/setup-homebrew@4790763c0a3ba4036f72634dc079c4a7dfcd4878 # 2026.10.19.1
       - name: Install and test every formula
         env:
-          # TODO: drop once smol-machines/tap's smolvm installs on Linux again. Its formula patches
+          # TODO (see TODO.md): drop once smol-machines/tap's smolvm installs on Linux again. Its formula patches
           # lib/libkrun.so.1 but the 1.32.3 tarball ships libkrun.so.2. Our formula tests don't need smolvm.
           INSTALL_FLAGS: ${{ runner.os == 'Linux' && '--ignore-dependencies' || '' }}
         run: |
