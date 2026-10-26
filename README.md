@@ -1,17 +1,12 @@
 # pelotech Homebrew tap
 
 ```sh
+brew tap smol-machines/tap                  # smolvm dependency; Homebrew 7+ won't auto-tap it
 brew trust pelotech/tap smol-machines/tap   # Homebrew 7+ only loads trusted third-party taps
 brew install pelotech/tap/smolbento
 ```
 
-Trusting `smol-machines/tap` is needed for smolbento's `smolvm` dependency. Trusting `pelotech/tap`
-lets a plain `brew upgrade` update smolbento.
-
-> **Known issue:** `smol-machines/tap`'s `smolvm` formula has no Intel-macOS url, which current
-> Homebrew rejects when tapping it, so a fresh `brew install pelotech/tap/smolbento` can fail
-> while tapping the dependency. The fix belongs upstream in smol-machines/homebrew-tap (give
-> every platform a url and refuse Intel Macs with `depends_on arch: :arm64`).
+Trusting `pelotech/tap` also lets a plain `brew upgrade` update smolbento.
 
 | Formula | Description | Platforms |
 |---|---|---|
@@ -59,6 +54,6 @@ With [Nix](https://nixos.org) and [direnv](https://direnv.net), `direnv allow` g
 prek install --hook-type pre-commit --hook-type commit-msg
 prek run --all-files                 # yamllint, actionlint, zizmor, shellcheck, shfmt, commitlint
 scripts/test-bump-formula            # needs network
-brew tap pelotech/tap "$PWD" && brew trust pelotech/tap smol-machines/tap
-brew readall --os=all --arch=all pelotech/tap && brew style pelotech/tap && brew audit --strict --online --tap pelotech/tap
+brew tap pelotech/tap "$PWD" && brew tap smol-machines/tap && brew trust pelotech/tap smol-machines/tap
+brew readall --os=all --arch=all pelotech/tap && brew style Formula/ && brew audit --strict --online --tap pelotech/tap
 ```

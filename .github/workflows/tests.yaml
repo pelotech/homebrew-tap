@@ -23,9 +23,12 @@ jobs:
           persist-credentials: false
       # Links this checkout into Homebrew as the pelotech/tap tap.
       - uses: Homebrew/actions/setup-homebrew@4790763c0a3ba4036f72634dc079c4a7dfcd4878 # 2026.10.19.1
-      # Homebrew 7 refuses to load formulae from untrusted third-party taps.
-      - run: brew trust pelotech/tap smol-machines/tap
-      - run: brew style pelotech/tap
+      # Homebrew 7 won't auto-tap the smolvm dependency's tap and only loads trusted third-party taps.
+      # Tap before trusting: tapping a trusted tap validates every OS, and smolvm has no Intel-macOS url.
+      - run: brew tap smol-machines/tap && brew trust pelotech/tap smol-machines/tap
+      # Formulae only: on a tap, brew style also runs Homebrew's own actionlint config over our
+      # workflows (they are linted by prek in pre-commit.yaml).
+      - run: brew style Formula/
       - run: brew readall --os=all --arch=all pelotech/tap
       - run: brew audit --strict --online --tap pelotech/tap
 
@@ -56,10 +59,22 @@ jobs:
           persist-credentials: false
       - uses: Homebrew/actions/setup-homebrew@4790763c0a3ba4036f72634dc079c4a7dfcd4878 # 2026.10.19.1
       - name: Install and test every formula
+        if: runner.os == 'macOS'
         run: |
-          brew trust pelotech/tap smol-machines/tap
+          brew tap smol-machines/tap && brew trust pelotech/tap smol-machines/tap
           for f in Formula/*.rb; do
             name="pelotech/tap/$(basename "$f" .rb)"
             brew install "$name"
             brew test "$name"
           done
+      # TODO (see TODO.md): use the step above on Linux too once smol-machines/tap's smolvm installs
+      # there again (its formula patches lib/libkrun.so.1, but the 1.32.3 tarball ships libkrun.so.2).
+      # `brew test` needs every dependency installed, so run the formula's test assertions directly.
+      - name: Install smolbento without smolvm and smoke-test it
+        if: runner.os == 'Linux'
+        run: |
+          brew tap smol-machines/tap && brew trust pelotech/tap smol-machines/tap
+          brew install --ignore-dependencies pelotech/tap/smolbento
+          version=$(brew info --json=v2 pelotech/tap/smolbento | jq -r '.formulae[0].versions.stable')
+          smolbento version | grep -F "smolbento version v$version"
+          sbt --version | grep -F "$version"
