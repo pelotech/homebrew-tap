@@ -1,0 +1,21 @@
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: ['config:best-practices'],
+  // Formula versions are bumped by bump.yaml (with signature checks), not Renovate.
+  homebrew: {
+    enabled: false,
+  },
+  // CI tools (cosign, prek, linters) are pinned by flake.lock.
+  nix: {
+    enabled: true,
+  },
+  'pre-commit': {
+    enabled: true,
+  },
+  packageRules: [
+    {
+      matchPackageNames: ['*'],
+      minimumReleaseAge: '7 days',
+    },
+  ],
+}

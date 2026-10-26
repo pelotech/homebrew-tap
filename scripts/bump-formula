@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# Usage: bump-formula <formula.rb> <version>
+#
+# Moves every release url in a prebuilt-binary formula to <version>. For each url it downloads the
+# tarball and its Sigstore bundle, checks the signature came from .github/workflows/$SIGNER_WORKFLOW
+# (default release-please.yaml) on main of the publishing repo, and writes the tarball's sha256 into
+# the line below the url. The formula is only replaced if every url passes.
+set -euo pipefail
+
+formula=$1 version=$2
+signer_workflow=${SIGNER_WORKFLOW:-release-please.yaml}
+
+if [[ ! $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "error: version must look like 1.2.3, got: $version" >&2
+  exit 1
+fi
+
+current=$(sed -nE 's#^ *url ".*/releases/download/v([^/]+)/.*#\1#p' "$formula" | sort -u)
+if [[ -z $current || $current == *$'\n'* ]]; then
+  echo "error: $formula urls must all point at one /releases/download/vX.Y.Z/ (found: ${current//$'\n'/, })" >&2
+  exit 1
+fi
+if [[ $current == "$version" ]]; then
+  echo "$formula is already at $version"
+  exit 0
+fi
+
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+new="$work/formula.rb"
+sed -E "s#/releases/download/v${current//./\\.}/#/releases/download/v$version/#" "$formula" >"$new"
+
+url_re='url "(https://github\.com/([^/]+/[^/]+)/releases/download/[^"]+)"'
+while IFS=: read -r n line; do
+  if [[ ! $line =~ $url_re ]]; then
+    echo "error: line $n of $formula is not a GitHub release url: $line" >&2
+    exit 1
+  fi
+  url=${BASH_REMATCH[1]} repo=${BASH_REMATCH[2]}
+
+  tarball="$work/$(basename "$url")"
+  curl -fsSL -o "$tarball" "$url"
+  curl -fsSL -o "$tarball.sigstore.json" "$url.sigstore.json"
+  cosign verify-blob --bundle "$tarball.sigstore.json" \
+    --certificate-identity "https://github.com/$repo/.github/workflows/$signer_workflow@refs/heads/main" \
+    --certificate-github-workflow-repository "$repo" \
+    --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+    "$tarball"
+  sha=$(shasum -a 256 "$tarball" | cut -d' ' -f1)
+
+  next=$((n + 1))
+  if ! sed -n "${next}p" "$new" | grep -qE '^ *sha256 "[0-9a-f]{64}"$'; then
+    echo "error: line $next of $formula should be the sha256 for $url" >&2
+    exit 1
+  fi
+  sed -E "${next}s/\"[0-9a-f]{64}\"/\"$sha\"/" "$new" >"$new.tmp"
+  mv "$new.tmp" "$new"
+done < <(grep -nE '^ *url "' "$new")
+
+mv "$new" "$formula"
+echo "$formula bumped from $current to $version"

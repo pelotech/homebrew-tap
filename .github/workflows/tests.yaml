@@ -1,0 +1,65 @@
+name: tests
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Links this checkout into Homebrew as the pelotech/tap tap.
+      - uses: Homebrew/actions/setup-homebrew@4790763c0a3ba4036f72634dc079c4a7dfcd4878 # 2026.10.19.1
+      # Homebrew 7 refuses to load formulae from untrusted third-party taps.
+      - run: brew trust pelotech/tap smol-machines/tap
+      - run: brew style pelotech/tap
+      - run: brew readall --os=all --arch=all pelotech/tap
+      - run: brew audit --strict --online --tap pelotech/tap
+
+  bump-script:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: $/.github/actions/nix-devshell
+      - run: scripts/test-bump-formula
+
+  install:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: Homebrew/actions/setup-homebrew@4790763c0a3ba4036f72634dc079c4a7dfcd4878 # 2026.10.19.1
+      - name: Install and test every formula
+        run: |
+          brew trust pelotech/tap smol-machines/tap
+          for f in Formula/*.rb; do
+            name="pelotech/tap/$(basename "$f" .rb)"
+            brew install "$name"
+            brew test "$name"
+          done

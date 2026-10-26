@@ -1,0 +1,109 @@
+name: bump
+on:
+  repository_dispatch:
+    types: [bump-formula]
+  schedule:
+    # Fallback for missed dispatches.
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+    inputs:
+      formula:
+        description: Formula name, e.g. smolbento
+        required: true
+      version:
+        description: Version without the leading v, e.g. 0.1.2
+        required: true
+
+permissions: {}
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      bumps: ${{ steps.plan.outputs.bumps }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          FORMULA: ${{ github.event.client_payload.formula || inputs.formula }}
+          VERSION: ${{ github.event.client_payload.version || inputs.version }}
+        run: |
+          if [ "$EVENT" = schedule ]; then
+            bumps=$(scripts/outdated-formulae)
+          else
+            if ! [[ $FORMULA =~ ^[a-z0-9-]+$ && -f Formula/$FORMULA.rb ]]; then
+              echo "::error::unknown formula: $FORMULA"
+              exit 1
+            fi
+            bumps=$(jq -nc --arg f "$FORMULA" --arg v "$VERSION" '[{formula: $f, version: $v}]')
+          fi
+          echo "bumps=$bumps" >> "$GITHUB_OUTPUT"
+
+  bump:
+    needs: plan
+    if: needs.plan.outputs.bumps != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.bumps) }}
+    concurrency:
+      group: bump-${{ matrix.formula }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions: {}
+    steps:
+      # pt-release-please, scoped to this repo. Pushes and PRs made with an App token trigger
+      # tests.yaml; ones made with GITHUB_TOKEN would not.
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app
+        with:
+          app-id: ${{ vars.ORG_RELEASE_PLEASE_CLIENT_ID }}
+          private-key: ${{ secrets.ORG_RELEASE_PLEASE_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # zizmor: ignore[artipacked] credentials persist so the later step can push the bump branch
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          token: ${{ steps.app.outputs.token }}
+      # cosign, gh and jq from the dev shell (pinned by flake.lock).
+      - uses: $/.github/actions/nix-devshell
+      - name: Bump formula
+        run: scripts/bump-formula "Formula/$FORMULA.rb" "$VERSION"
+        env:
+          FORMULA: ${{ matrix.formula }}
+          VERSION: ${{ matrix.version }}
+      - name: Open auto-merge PR
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          APP_SLUG: ${{ steps.app.outputs.app-slug }}
+          FORMULA: ${{ matrix.formula }}
+          VERSION: ${{ matrix.version }}
+        run: |
+          if git diff --quiet; then
+            echo "Formula/$FORMULA.rb is already at $VERSION"
+            exit 0
+          fi
+          branch="bump/$FORMULA-$VERSION"
+          title="feat($FORMULA): bump to $VERSION"
+          user_id=$(gh api "/users/${APP_SLUG}%5Bbot%5D" --jq .id)
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${user_id}+${APP_SLUG}[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git commit -am "$title"
+          git push --force origin "$branch"
+          if [ "$(gh pr list --head "$branch" --state open --json number --jq length)" = 0 ]; then
+            repo=$(sed -nE 's#^  homepage "https://github\.com/([^"]+)"$#\1#p' "Formula/$FORMULA.rb")
+            release="https://github.com/$repo/releases/tag/v$VERSION"
+            gh pr create --head "$branch" --title "$title" \
+              --body "Bumps \`$FORMULA\` to [v$VERSION]($release). Release tarballs were verified with cosign before their checksums were recorded."
+          fi
+          gh pr merge "$branch" --auto --squash

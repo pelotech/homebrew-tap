@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Prints a JSON array of {formula, version} for every formula whose GitHub repo (its homepage) has
+# a latest release that differs from the formula's version, e.g. [{"formula":"smolbento","version":"0.1.2"}].
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+outdated='[]'
+for f in Formula/*.rb; do
+  name=$(basename "$f" .rb)
+  current=$(sed -nE 's#^ *url ".*/releases/download/v([^/]+)/.*#\1#p' "$f" | head -1)
+  repo=$(sed -nE 's#^  homepage "https://github\.com/([^/"]+/[^/"]+)"$#\1#p' "$f")
+  latest=$(gh release view --repo "$repo" --json tagName --jq '.tagName | ltrimstr("v")')
+  if [[ $latest != "$current" ]]; then
+    outdated=$(jq -c --arg f "$name" --arg v "$latest" '. + [{formula: $f, version: $v}]' <<<"$outdated")
+  fi
+done
+
+echo "$outdated"

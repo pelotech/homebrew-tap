@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Integration test for bump-formula against the real smolbento release (needs network and cosign).
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+formula=Formula/smolbento.rb
+version=$(sed -nE 's#^ *url ".*/releases/download/v([^/]+)/.*#\1#p' "$formula" | head -1)
+zeros=0000000000000000000000000000000000000000000000000000000000000000
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+fail() {
+  echo "FAIL: $*" >&2
+  exit 1
+}
+
+# The committed formula with an old version in its urls and zeroed checksums.
+stale() {
+  sed -E -e 's#/releases/download/v[^/]+/#/releases/download/v0.0.0/#' \
+    -e "s/sha256 \"[0-9a-f]{64}\"/sha256 \"$zeros\"/" "$formula" >"$1"
+}
+
+# Runs bump-formula on a fresh stale copy and checks it fails without touching the file.
+expect_failure() {
+  local name=$1
+  shift
+  stale "$tmp/$name.rb"
+  cp "$tmp/$name.rb" "$tmp/$name.orig"
+  if "$@" "$tmp/$name.rb" 2>/dev/null; then fail "$name: expected failure"; fi
+  cmp -s "$tmp/$name.orig" "$tmp/$name.rb" || fail "$name: formula changed on failure"
+}
+
+cp "$formula" "$tmp/noop.rb"
+scripts/bump-formula "$tmp/noop.rb" "$version" >/dev/null
+cmp -s "$formula" "$tmp/noop.rb" || fail "no-op: formula changed"
+echo "ok - already at version is a no-op"
+
+stale "$tmp/stale.rb"
+scripts/bump-formula "$tmp/stale.rb" "$version" >/dev/null 2>&1
+cmp -s "$formula" "$tmp/stale.rb" || fail "bump: did not reproduce $formula"
+echo "ok - bump restores version and verified checksums"
+
+bump() { scripts/bump-formula "$2" "$1"; }
+expect_failure missing-release bump 9.9.9
+echo "ok - missing release fails cleanly"
+
+expect_failure bad-version bump '1.0; rm -rf /'
+echo "ok - malformed version rejected"
+
+wrong_signer() { SIGNER_WORKFLOW=nope.yaml scripts/bump-formula "$1" "$version"; }
+expect_failure wrong-signer wrong_signer
+echo "ok - signature from an unexpected workflow is rejected"
+
+# One url on a different version than the others. awk, because BSD sed lacks `0,/re/`.
+stale "$tmp/mixed.rb"
+awk '!done && /releases\/download\/v0\.0\.0\// { sub(/v0\.0\.0/, "v0.0.9"); done=1 } 1' "$tmp/mixed.rb" >"$tmp/mixed.orig"
+cp "$tmp/mixed.orig" "$tmp/mixed.rb"
+if scripts/bump-formula "$tmp/mixed.rb" "$version" 2>/dev/null; then fail "mixed-versions: expected failure"; fi
+cmp -s "$tmp/mixed.orig" "$tmp/mixed.rb" || fail "mixed-versions: formula changed on failure"
+echo "ok - urls that disagree on version are rejected"

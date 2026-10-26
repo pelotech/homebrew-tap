@@ -1,0 +1,5 @@
+.idea/
+# local planning docs (superpowers specs/plans)
+docs/superpowers/
+.direnv/
+.superpowers/
