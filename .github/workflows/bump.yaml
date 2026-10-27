@@ -61,7 +61,7 @@ jobs:
     timeout-minutes: 15
     permissions: {}
     steps:
-      # pt-release-please, scoped to this repo. Pushes and PRs made with an App token trigger
+      # pt-release-please, scoped to this repo. Branches and PRs made with an App token trigger
       # tests.yaml; ones made with GITHUB_TOKEN would not.
       - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         id: app
@@ -70,40 +70,37 @@ jobs:
           private-key: ${{ secrets.ORG_RELEASE_PLEASE_PRIVATE_KEY }}
           permission-contents: write
           permission-pull-requests: write
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # zizmor: ignore[artipacked] credentials persist so the later step can push the bump branch
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.repository.default_branch }}
-          token: ${{ steps.app.outputs.token }}
+          persist-credentials: false
       # cosign, gh and jq from the dev shell (pinned by flake.lock).
       - uses: $/.github/actions/nix-devshell
       - name: Bump formula
-        run: scripts/bump-formula "Formula/$FORMULA.rb" "$VERSION"
+        id: bump
+        run: |
+          scripts/bump-formula "Formula/$FORMULA.rb" "$VERSION"
+          repo=$(sed -nE 's#^  homepage "https://github\.com/([^"]+)"$#\1#p' "Formula/$FORMULA.rb")
+          echo "release=https://github.com/$repo/releases/tag/v$VERSION" >> "$GITHUB_OUTPUT"
         env:
           FORMULA: ${{ matrix.formula }}
           VERSION: ${{ matrix.version }}
-      - name: Open auto-merge PR
+      # Commits through the API so GitHub signs them (the org requires verified signatures).
+      # Does nothing when the formula is already at this version.
+      - uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        id: pr
+        with:
+          token: ${{ steps.app.outputs.token }}
+          sign-commits: true
+          branch: bump/${{ matrix.formula }}-${{ matrix.version }}
+          commit-message: 'feat(${{ matrix.formula }}): bump to ${{ matrix.version }}'
+          title: 'feat(${{ matrix.formula }}): bump to ${{ matrix.version }}'
+          body: >-
+            Bumps `${{ matrix.formula }}` to [v${{ matrix.version }}](${{ steps.bump.outputs.release }}).
+            Release tarballs were verified with cosign before their checksums were recorded.
+      - name: Enable auto-merge
+        if: steps.pr.outputs.pull-request-number
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
-          APP_SLUG: ${{ steps.app.outputs.app-slug }}
-          FORMULA: ${{ matrix.formula }}
-          VERSION: ${{ matrix.version }}
-        run: |
-          if git diff --quiet; then
-            echo "Formula/$FORMULA.rb is already at $VERSION"
-            exit 0
-          fi
-          branch="bump/$FORMULA-$VERSION"
-          title="feat($FORMULA): bump to $VERSION"
-          user_id=$(gh api "/users/${APP_SLUG}%5Bbot%5D" --jq .id)
-          git config user.name "${APP_SLUG}[bot]"
-          git config user.email "${user_id}+${APP_SLUG}[bot]@users.noreply.github.com"
-          git switch -c "$branch"
-          git commit -am "$title"
-          git push --force origin "$branch"
-          if [ "$(gh pr list --head "$branch" --state open --json number --jq length)" = 0 ]; then
-            repo=$(sed -nE 's#^  homepage "https://github\.com/([^"]+)"$#\1#p' "Formula/$FORMULA.rb")
-            release="https://github.com/$repo/releases/tag/v$VERSION"
-            gh pr create --head "$branch" --title "$title" \
-              --body "Bumps \`$FORMULA\` to [v$VERSION]($release). Release tarballs were verified with cosign before their checksums were recorded."
-          fi
-          gh pr merge "$branch" --auto --squash
+          PR: ${{ steps.pr.outputs.pull-request-number }}
+        run: gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --auto --squash
