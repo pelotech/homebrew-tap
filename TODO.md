@@ -25,5 +25,5 @@ Open follow-ups for this tap. Tick items off (or delete them) in the PR that res
 - [ ] `scripts/bump-formula`: usage message; reject downgrades (newer-version-only)
 - [ ] `scripts/outdated-formulae`: warn and continue per formula (do this before adding a 2nd
   formula)
-- [ ] `bump.yaml`: `git push --force-with-lease`; rename the `app-id` input to `client-id`
+- [ ] `bump.yaml`: rename the `app-id` input to `client-id`
 - [ ] Optionally scope the App secret to a `main`-only environment
