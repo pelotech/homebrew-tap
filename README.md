@@ -1,8 +1,10 @@
 # pelotech Homebrew tap
 
 ```sh
-brew tap smol-machines/tap                  # smolvm dependency; Homebrew 7+ won't auto-tap it
-brew trust pelotech/tap smol-machines/tap   # Homebrew 7+ only loads trusted third-party taps
+# smolvm dependency; Homebrew 7+ won't auto-tap it
+brew tap smol-machines/tap
+# Homebrew 7+ only loads trusted third-party taps
+brew trust pelotech/tap smol-machines/tap
 brew install pelotech/tap/smolbento
 ```
 
@@ -52,8 +54,10 @@ With [Nix](https://nixos.org) and [direnv](https://direnv.net), `direnv allow` g
 
 ```sh
 prek install --hook-type pre-commit --hook-type commit-msg
-prek run --all-files                 # yamllint, actionlint, zizmor, shellcheck, shfmt, commitlint
-scripts/test-bump-formula            # needs network
+# yamllint, actionlint, zizmor, shellcheck, shfmt, commitlint
+prek run --all-files
+# needs network
+scripts/test-bump-formula
 brew tap pelotech/tap "$PWD" && brew tap smol-machines/tap && brew trust pelotech/tap smol-machines/tap
 brew readall --os=all --arch=all pelotech/tap && brew style Formula/ && brew audit --strict --online --tap pelotech/tap
 ```
