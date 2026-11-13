@@ -3,8 +3,8 @@ class Smolbento < Formula
   homepage "https://github.com/pelotech/smolbento"
   # Prebuilt release tarballs (cosign signatures are verified when the formula is bumped);
   # Homebrew reads the version from these urls.
-  url "https://github.com/pelotech/smolbento/releases/download/v0.17.1/smolbento-aarch64-apple-darwin.tar.gz"
-  sha256 "6867590bdc15e77259d126d8738f4d984a1ab80758366f97b9a955da844ba354"
+  url "https://github.com/pelotech/smolbento/releases/download/v0.18.0/smolbento-aarch64-apple-darwin.tar.gz"
+  sha256 "4304f70b7c9afb8bb58aaf2adb6d988df46babb548dbdeb01eb5c79e670a1372"
   license "Apache-2.0"
 
   livecheck do
@@ -21,12 +21,12 @@ class Smolbento < Formula
 
   on_linux do
     on_arm do
-      url "https://github.com/pelotech/smolbento/releases/download/v0.17.1/smolbento-aarch64-unknown-linux-gnu.tar.gz"
-      sha256 "8220596695d1d0bc93b9a0c2efcf53bb9edc32732d7d22bb279ca023ba3f2e2c"
+      url "https://github.com/pelotech/smolbento/releases/download/v0.18.0/smolbento-aarch64-unknown-linux-gnu.tar.gz"
+      sha256 "68358778e53a393e75e35fb4113ecfdbb3635da50ab1b01c7379ec5653f20b2b"
     end
     on_intel do
-      url "https://github.com/pelotech/smolbento/releases/download/v0.17.1/smolbento-x86_64-unknown-linux-gnu.tar.gz"
-      sha256 "6d3acdf0286834b028bb815006a2c538270eeeca9f247eda2cb1d08329e5c675"
+      url "https://github.com/pelotech/smolbento/releases/download/v0.18.0/smolbento-x86_64-unknown-linux-gnu.tar.gz"
+      sha256 "d8d3157f2662769e545c13a04b1fafa6a5ae03db96861901ce13087a8dd2a245"
     end
   end
 
