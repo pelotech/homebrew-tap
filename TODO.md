@@ -2,22 +2,6 @@
 
 Open follow-ups for this tap. Tick items off (or delete them) in the PR that resolves them.
 
-## Blocked on upstream (smol-machines/homebrew-tap)
-
-- [ ] **smolvm can't be installed on Linux.** `Formula/smolvm.rb` runs patchelf on
-  `libexec/lib/libkrun.so.1`, but the 1.32.3 tarball ships `lib/libkrun.so.2` (upstream bump
-  `c04155c`, 2026-10-26). Linux users can't `brew install pelotech/tap/smolbento` until it's fixed.
-  - When fixed: in `.github/workflows/tests.yaml`'s `install` job, delete the Linux-only
-    "Install smolbento without smolvm" step and the `if: runner.os == 'macOS'` on the step above it
-    (look for the TODO comment).
-- [ ] **smolvm has no Intel-macOS url.** Homebrew 7 rejects the tap when it's tapped while trusted,
-  so the README and CI must run `brew tap smol-machines/tap` before `brew trust`.
-  - When fixed: the tap/trust order no longer matters. Optionally simplify the comment in
-    `tests.yaml` (`lint` job).
-  - The accepted fix is the homebrew-core pattern our formula already uses: a top-level `url`,
-    `on_linux` overrides, and `on_macos do depends_on arch: :arm64 end` (as in core's `podman`,
-    `pomerium` and `reg`).
-
 ## Nice to have (deferred review items)
 
 - [ ] `scripts/test-bump-formula`: check stderr so the wrong-signer and missing-release cases prove

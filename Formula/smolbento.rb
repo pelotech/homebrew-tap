@@ -12,11 +12,12 @@ class Smolbento < Formula
     strategy :github_latest
   end
 
-  depends_on "smol-machines/tap/smolvm"
-
+  # smolbento downloads the smolvm release it's tested with on first use (into ~/.smolbento).
   on_macos do
     # There is no Intel macOS build.
     depends_on arch: :arm64
+    # smolvm formats sandbox disks larger than 20 GiB with it.
+    depends_on "e2fsprogs"
   end
 
   on_linux do
@@ -44,6 +45,10 @@ class Smolbento < Formula
       smolbento is linked as `smolbento`, `sbt` and `bento`. `sbx` is not linked, so it
       cannot clash with Docker Sandboxes. To also use it as `sbx`, add to your shell rc:
         alias sbx=sbt
+
+      smolbento downloads smolvm on first use into ~/.smolbento, with its sandboxes.
+      To remove them too, run this before `brew uninstall smolbento`:
+        sbt reset --force
     EOS
   end
 
