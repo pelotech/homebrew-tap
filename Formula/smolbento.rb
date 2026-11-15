@@ -33,27 +33,27 @@ class Smolbento < Formula
 
   def install
     bin.install "smolbento"
-    # `sbx` is deliberately not linked: it would shadow Docker Sandboxes' own `sbx`.
-    bin.install_symlink bin/"smolbento" => "sbt"
+    # `sbx` and `sbt` are deliberately not linked: they would shadow Docker Sandboxes' `sbx` and
+    # Scala's `sbt`.
     bin.install_symlink bin/"smolbento" => "bento"
-    # smolbento's clap command is named `sbt`, so its completions are for `sbt`.
-    generate_completions_from_executable(bin/"smolbento", "completion", base_name: "sbt")
+    # smolbento's clap command is named `bento`, so its completions are for `bento`.
+    generate_completions_from_executable(bin/"smolbento", "completion", base_name: "bento")
   end
 
   def caveats
     <<~EOS
-      smolbento is linked as `smolbento`, `sbt` and `bento`. `sbx` is not linked, so it
-      cannot clash with Docker Sandboxes. To also use it as `sbx`, add to your shell rc:
-        alias sbx=sbt
+      smolbento is linked as `smolbento` and `bento`. `sbx` and `sbt` are not linked, so they
+      cannot clash with Docker Sandboxes or Scala's sbt. To use those names, add to your shell rc:
+        alias sbx=bento sbt=bento
 
       smolbento downloads smolvm on first use into ~/.smolbento, with its sandboxes.
       To remove them too, run this before `brew uninstall smolbento`:
-        sbt reset --force
+        bento reset --force
     EOS
   end
 
   test do
     assert_match "smolbento version v#{version}", shell_output("#{bin}/smolbento version")
-    assert_match version.to_s, shell_output("#{bin}/sbt --version")
+    assert_match version.to_s, shell_output("#{bin}/bento --version")
   end
 end
