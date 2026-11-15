@@ -1,10 +1,9 @@
 # pelotech Homebrew tap
 
 ```sh
-# smolvm dependency; Homebrew 7+ won't auto-tap it
-brew tap smol-machines/tap
+brew tap pelotech/tap
 # Homebrew 7+ only loads trusted third-party taps
-brew trust pelotech/tap smol-machines/tap
+brew trust pelotech/tap
 brew install pelotech/tap/smolbento
 ```
 
@@ -12,7 +11,7 @@ Trusting `pelotech/tap` also lets a plain `brew upgrade` update smolbento.
 
 | Formula | Description | Platforms |
 |---|---|---|
-| [`smolbento`](https://github.com/pelotech/smolbento) | Docker Sandboxes (`sbx`) compatible agent sandboxes on smolvm microVMs. Installs `smolbento`, `sbt` and `bento` (not `sbx`) and pulls in `smol-machines/tap/smolvm`. | macOS arm64, Linux x86_64/arm64 |
+| [`smolbento`](https://github.com/pelotech/smolbento) | Docker Sandboxes (`sbx`) compatible agent sandboxes on smolvm microVMs. Installs `smolbento` and `bento` (not `sbx` or `sbt`; alias them if you want them). smolbento downloads its own smolvm on first use. | macOS arm64, Linux x86_64/arm64 |
 
 ## How updates work
 
